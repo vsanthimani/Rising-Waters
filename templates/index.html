@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hydro-Predict: Flood Risk Assessment Model</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen font-sans">
+
+    <div class="container mx-auto px-4 py-8 max-w-4xl">
+        <!-- Header Banner Section Layout -->
+        <header class="text-center mb-10 border-b border-slate-700 pb-6">
+            <h1 class="text-4xl font-extrabold text-blue-400 tracking-tight">Flood Risk Evaluation Engine</h1>
+            <p class="text-slate-400 mt-2">Enter risk indicator parameters below to run predictive analysis models.</p>
+        </header>
+
+        <!-- Prediction Yield Alerts Output UI Section Block -->
+        {% if prediction_text %}
+        <div class="mb-8 p-6 rounded-xl bg-slate-800 border-l-4 {% if 'High' in prediction_text or '50%' in prediction_text %}border-amber-500{% else %}border-blue-500{% endif %} shadow-md">
+            <h3 class="text-sm uppercase tracking-wider text-slate-400 font-semibold">Model Assessment Results</h3>
+            <p class="text-2xl font-bold mt-1 text-slate-100">{{ prediction_text }}</p>
+        </div>
+        {% endif %}
+
+        <!-- Interactive Core Data Parameters Submission Workspace Form Interface -->
+        <div class="bg-slate-800 p-8 rounded-2xl shadow-xl border border-slate-700">
+            <form action="/predict" method="POST" class="space-y-6">
+                
+                {% if features %}
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {% for feature in features %}
+                    <div class="flex flex-col space-y-2">
+                        <label for="{{ feature }}" class="text-sm font-medium text-slate-300 capitalize">
+                            {{ feature | replace('_', ' ') }} Score
+                        </label>
+                        <input 
+                            type="number" 
+                            step="any" 
+                            name="{{ feature }}" 
+                            id="{{ feature }}" 
+                            required 
+                            placeholder="Typical range value 0-10"
+                            class="bg-slate-950 border border-slate-700 rounded-lg px-4 py-2.5 text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+                        >
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-center py-6 bg-slate-950 rounded-lg border border-dashed border-slate-700 text-slate-400">
+                    <p>No functional input features detected. Verify that you have generated model pipeline artifacts.</p>
+                </div>
+                {% endif %}
+
+                <div class="pt-4">
+                    <button 
+                        type="submit" 
+                        class="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 px-6 rounded-xl shadow-lg transform active:scale-[0.98] transition-all duration-150"
+                    >
+                        Execute Prediction Matrix Evaluation
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+</body>
+</html>
