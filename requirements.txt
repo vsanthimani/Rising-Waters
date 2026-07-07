@@ -1,0 +1,43 @@
+from sklearn.ensemble import GradientBoostingClassifier
+from sklearn.metrics import confusion_matrix
+from sklearn.metrics import classification_report
+from sklearn.metrics import accuracy_score
+
+def gradient_boosting(X_train, X_test, y_train, y_test):
+
+    print("\n========== GRADIENT BOOSTING MODEL ==========\n")
+
+    # Initialize Model
+    model = GradientBoostingClassifier(
+        n_estimators=100,
+        learning_rate=0.1,
+        random_state=42
+    )
+
+    # Train Model
+    model.fit(X_train, y_train)
+
+    print("[INFO] Model Training Completed")
+
+    # Prediction
+    y_pred = model.predict(X_test)
+
+    print("[INFO] Prediction Completed")
+
+    # Evaluation
+    accuracy = accuracy_score(y_test, y_pred)
+
+    cm = confusion_matrix(y_test, y_pred)
+
+    cr = classification_report(y_test, y_pred)
+
+    print("\nAccuracy Score:")
+    print(accuracy)
+
+    print("\nConfusion Matrix:")
+    print(cm)
+
+    print("\nClassification Report:")
+    print(cr)
+
+    return model, y_pred

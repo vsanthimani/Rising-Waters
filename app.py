@@ -1,83 +1,249 @@
-# app.py
-import pickle
+# import numpy as np
+# import pandas as pd
+# import matplotlib.pyplot as plt
+# import seaborn as sns
+
+# print("All libraries imported successfully!")
+
+# ==========================================
+# FLOOD PREDICTION MODEL TRAINING
+# ==========================================
+
+# Import Libraries
 import numpy as np
-from flask import Flask, request, jsonify
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
 
-app = Flask(__name__)
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import accuracy_score, confusion_matrix
 
-# =====================================================================
-# LOAD MODEL ASSETS ON STARTUP
-# =====================================================================
-try:
-    with open('models/random_forest_model.pkl', 'rb') as f:
-        model = pickle.pickle.load(f) if hasattr(pickle, 'pickle') else pickle.load(f)
-        
-    with open('models/scaler.pkl', 'rb') as f:
-        scaler = pickle.load(f)
-    print("Model assets loaded successfully. Ready for predictions!")
-except FileNotFoundError:
-    print("Error: Model files not found! Please run 'train_model.py' first to generate them.")
-    exit(1)
+from xgboost import XGBClassifier
+from gradient_boosting_model import gradient_boosting
 
-# =====================================================================
-# API ROUTES
-# =====================================================================
+import joblib
 
-@app.route('/', methods=['GET'])
-def home():
-    return jsonify({
-        "message": "Welcome to the ML Model Deployment API!",
-        "status": "Running",
-        "usage": "Send a POST request to /predict with JSON payload containing 'Age', 'Income', 'CreditScore', and 'Debt'."
-    })
+# ==========================================
+# LOAD DATASET
+# ==========================================
 
-@app.route('/predict', methods=['POST'])
-def predict():
-    try:
-        # 1. Parse JSON data from incoming request
-        data = request.get_json(force=True)
-        
-        # Expected input format example:
-        # { "Age": 34, "Income": 65000, "CreditScore": 710, "Debt": 5000 }
-        
-        # 2. Extract features in correct order
-        features = [
-            data['Age'],
-            data['Income'],
-            data['CreditScore'],
-            data['Debt']
-        ]
-        
-        # 3. Convert to 2D numpy array for the model
-        features_array = np.array([features])
-        
-        # 4. Apply the same scaling used during training
-        features_scaled = scaler.transform(features_array)
-        
-        # 5. Perform prediction and extract probabilities
-        prediction = int(model.predict(features_scaled)[0])
-        probability = model.predict_proba(features_scaled)[0]
-        risk_probability = float(probability[1])
-        
-        # Map target back to readable label
-        status_label = "Risk / Churn" if prediction == 1 else "Safe / Retained"
-        
-        # 6. Return response
-        return jsonify({
-            "status": "success",
-            "prediction": prediction,
-            "label": status_label,
-            "risk_probability": round(risk_probability, 4)
-        })
+print("Loading Dataset...")
 
-    except KeyError as e:
-        return jsonify({"status": "error", "message": f"Missing expected feature: {str(e)}"}), 400
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
+dataset = pd.read_excel("../dataset/flood_dataset.xlsx")
 
-# =====================================================================
-# RUN THE FLASK APP
-# =====================================================================
-if __name__ == '__main__':
-    # Run locally on http://127.0.0.1:5000/
-    app.run(debug=True, port=5000)
+print("\nFirst 5 Rows:")
+print(dataset.head())
+
+# ==========================================
+# DATA EXPLORATION
+# ==========================================
+
+print("\nDataset Shape:")
+print(dataset.shape)
+
+print("\nDataset Information:")
+print(dataset.info())
+
+print("\nStatistical Summary:")
+print(dataset.describe())
+
+print("\nMissing Values:")
+print(dataset.isnull().sum())
+
+# ==========================================
+# HANDLE MISSING VALUES
+# ==========================================
+
+dataset.fillna(dataset.mean(numeric_only=True), inplace=True)
+
+# ==========================================
+# FEATURES AND TARGET
+# ==========================================
+
+X = dataset[
+    [
+        "annual_rainfall",
+        "cloud_visibility",
+        "seasonal_rainfall",
+        "temperature",
+        "humidity"
+    ]
+]
+
+y = dataset["flood"]
+
+# ==========================================
+# SPLIT DATA
+# ==========================================
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X,
+    y,
+    test_size=0.20,
+    random_state=42
+)
+
+# ==========================================
+# FEATURE SCALING
+# ==========================================
+
+scaler = StandardScaler()
+
+X_train = scaler.fit_transform(X_train)
+X_test = scaler.transform(X_test)
+
+# ==========================================
+# TRAIN MODEL
+# ==========================================
+
+print("\nTraining Model...")
+
+model = XGBClassifier(
+    n_estimators=100,
+    max_depth=4,
+    learning_rate=0.1,
+    random_state=42
+)
+
+model.fit(X_train, y_train)
+
+# ==========================================
+# MODEL TRAINING
+# ==========================================
+
+model, y_pred = gradient_boosting(
+    X_train,
+    X_test,
+    y_train,
+    y_test
+)
+
+# ==========================================
+# PREDICTIONS
+# ==========================================
+
+y_pred = model.predict(X_test)
+
+# ==========================================
+# EVALUATION
+# ==========================================
+
+accuracy = accuracy_score(y_test, y_pred)
+
+print("\nAccuracy:")
+print(round(accuracy * 100, 2), "%")
+
+print("\nConfusion Matrix:")
+print(confusion_matrix(y_test, y_pred))
+
+# ==========================================
+# SAVE MODEL
+# ==========================================
+
+joblib.dump(model, "flood_model.pkl")
+joblib.dump(scaler, "scaler.pkl")
+
+print("\nModel Saved Successfully!")
+
+# ==========================================
+# SAMPLE PREDICTION
+# ==========================================
+
+sample_data = pd.DataFrame({
+    "annual_rainfall": [1250.5],
+    "cloud_visibility": [70],
+    "seasonal_rainfall": [450.2],
+    "temperature": [29.5],
+    "humidity": [82]
+})
+
+sample_data = scaler.transform(sample_data)
+
+prediction = model.predict(sample_data)
+
+print("\nPrediction Result:")
+
+if prediction[0] == 1:
+    print("Flood Likely")
+else:
+    print("No Flood")
+
+# ==========================================
+# VISUALIZATION
+# ==========================================
+
+plt.figure(figsize=(8, 5))
+sns.heatmap(dataset.corr(), annot=True)
+plt.title("Correlation Heatmap")
+plt.show()
+
+# ==========================================
+# UNIVARIATE ANALYSIS
+# ==========================================
+
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# Distribution Plot - Temperature
+
+plt.figure(figsize=(6,4))
+sns.histplot(dataset['temperature'], kde=True)
+plt.title("Temperature Distribution")
+plt.show()
+
+# Box Plot - Temperature
+
+plt.figure(figsize=(6,4))
+sns.boxplot(x=dataset['temperature'])
+plt.title("Temperature Box Plot")
+plt.show()
+
+# ==========================================
+# DISTRIBUTION PLOTS
+# ==========================================
+
+columns = [
+    'annual_rainfall',
+    'cloud_visibility',
+    'seasonal_rainfall',
+    'temperature',
+    'humidity'
+]
+
+for col in columns:
+    plt.figure(figsize=(6,4))
+    sns.histplot(dataset[col], kde=True)
+    plt.title(f"Distribution Plot - {col}")
+    plt.show()
+
+# ==========================================
+# BOX PLOTS
+# ==========================================
+
+for col in columns:
+    plt.figure(figsize=(6,4))
+    sns.boxplot(x=dataset[col])
+    plt.title(f"Box Plot - {col}")
+    plt.show()
+
+
+# ==========================================
+# MULTIVARIATE ANALYSIS
+# CORRELATION HEATMAP
+# ==========================================
+
+plt.figure(figsize=(12,8))
+
+sns.heatmap(
+    dataset.corr(),
+    annot=True,
+    cmap='summer',
+    linewidths=1,
+    linecolor='black',
+    square=True,
+    cbar=True
+)
+
+plt.title("Correlation Heatmap")
+plt.show()
